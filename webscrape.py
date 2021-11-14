@@ -9,10 +9,9 @@ from selenium.webdriver.common.keys import Keys
 class WebScrape:
     def __init__(self):
         self.league_dic = {}
-        #self._get_league_match_urls()
-        self._init_selenium()
+        self._get_league_match_urls()
 
-    def _init_selenium(self):
+    def init_selenium(self):
         self.chrome_options = Options()
         #self.chrome_options.add_argument('--headless')
         self.chrome_options.add_argument("--mute-audio")
@@ -23,19 +22,17 @@ class WebScrape:
     def _get_league_match_urls(self):
 
         # Get main soccer stream page
-        main_soccer_stream_url = "https://www.totalsportek.com/seventytwo/"
-        main_soccer_page = requests.get(main_soccer_stream_url)
-        main_soccer_content_url = BeautifulSoup(main_soccer_page.content, "html.parser").find_all('iframe')[0].attrs['src']
+        main_soccer_stream_url = "https://buffersports.com/football-games"
         
         # Find match and link of it
-        main_soccer_page = requests.get(main_soccer_content_url)
+        main_soccer_page = requests.get(main_soccer_stream_url)
         main_soccer_content = BeautifulSoup(main_soccer_page.content, "html.parser").find_all("li", {"class" : "country-sales-content list-group-item"})
         
         for league in main_soccer_content:
             
             # Extract name of league
             league_name = league.find(class_ = "ml-3 mt-3 font-weight-bold").text.strip()
-            if league_name and league_name != "Others":
+            if league_name:
                 # Create entry for dictionary
                 self.league_dic[league_name] = {}
                 
@@ -49,6 +46,11 @@ class WebScrape:
 
                     # Record them in dictionary
                     self.league_dic[league_name].update({match_description : {"Time" : match_time_utc, "match_link": match_link, "stream_link": [], "m3u8" : []}})
+
+    def get_all_match_urls(self):
+        for league_name in self.league_dic:
+            for match_description in self.league_dic[league_name]:
+                self.get_matches_urls(league_name, match_description)
 
     def get_matches_urls(self, league, match):
         
@@ -74,7 +76,6 @@ class WebScrape:
                 match_link =  link.attrs["href"]
                 self.league_dic[league][match]["stream_link"].append(match_link)
 
-
     def video_finder(self, url):
         
         m3u8_urls = []
@@ -91,7 +92,7 @@ class WebScrape:
             self.driver.wait_for_request(".m3u8", 15)
             print("m3u8 url found")
             for request in self.driver.requests:
-                if request.response and ("m3u8" in request.url or ".ts" in request.url):
+                if request.response and ("m3u8" in request.url):
                     if request.url not in m3u8_urls:
                         m3u8_urls.append(request.url)
 
@@ -104,23 +105,8 @@ class WebScrape:
 
 if __name__ == "__main__":
     obj = WebScrape()
-    
-    #obj.get_matches_urls("Premier League", "Brentford vs Chelsea")
-    #print(obj.league_dic["Premier League"]["Leicester City vs Manchester United"])
+    obj.get_all_match_urls()
 
-    links = ["https://mazystreams.xyz/event/nfl2/s2.php", "https://uhdstreams.club/chat/ch2.php", "https://streamspass.com/nfl/dolphins?moment=17&match=MIA-Dolphins-vs-JAX-Jaguars"]
+    print (obj.league_dic)
 
-    urls = []
 
-    for stream_link in links:
-        list = obj.video_finder(stream_link)
-        for item in list:
-            if item not in urls:
-                urls.append(item)
-
-    
-    print (urls)
-
-    #url = "http://soccermotor.com/sports-stream-channel-1/"
-    #obj.video_finder(url)
-    #obj._get_matches_urls("abs", "def", "https://www.totalsportek.com/boxing/fury-vs-wilder-streams/")
